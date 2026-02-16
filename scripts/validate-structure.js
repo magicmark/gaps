@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 
 /**
- * Validates the structure of a GAP directory.
+ * Validates the structure of GAP directories.
  *
- * Usage: ./scripts/validate-structure.js <gap-directory>
+ * Usage: ./scripts/validate-structure.js [gap-directory]
  *
- * Can be xarg'd over all GAP directories:
- *   find . -maxdepth 1 -type d -name 'GAP-*' | xargs -I{} node scripts/validate-structure.js {}
+ * If no directory is provided, automatically discovers and validates all GAP-* directories
+ * in the repository root.
  */
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync, readdirSync } from "node:fs";
 import { basename, join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -122,16 +122,16 @@ function validateMetadata(dirPath, gapName) {
   }
 }
 
-function main() {
-  const { positionals } = parseArgs({ allowPositionals: true, strict: true });
+function discoverGapDirectories() {
+  const rootDir = join(__dirname, "..");
+  const entries = readdirSync(rootDir, { withFileTypes: true });
 
-  if (positionals.length !== 1) {
-    console.error("Usage: ./scripts/validate-structure.js <gap-directory>");
-    process.exit(1);
-  }
+  return entries
+    .filter((entry) => entry.isDirectory() && /^GAP-/.test(entry.name))
+    .map((entry) => join(rootDir, entry.name));
+}
 
-  const dirPath = positionals[0];
-
+function validateGapDirectory(dirPath) {
   if (!existsSync(dirPath)) {
     console.error(`Directory does not exist: ${dirPath}`);
     process.exit(1);
@@ -150,6 +150,35 @@ function main() {
 
   // Validate metadata.yml
   validateMetadata(dirPath, gapName);
+
+  console.log(`✓ ${gapName} validated successfully`);
+}
+
+function main() {
+  const { positionals } = parseArgs({ allowPositionals: true, strict: true });
+
+  if (positionals.length === 0) {
+    // No arguments provided - discover and validate all GAP directories
+    const gapDirs = discoverGapDirectories();
+
+    if (gapDirs.length === 0) {
+      console.error("No GAP directories found");
+      process.exit(1);
+    }
+
+    console.log(`Found ${gapDirs.length} GAP director${gapDirs.length === 1 ? "y" : "ies"}`);
+
+    for (const dir of gapDirs) {
+      validateGapDirectory(dir);
+    }
+  } else if (positionals.length === 1) {
+    // Single directory provided - validate it
+    const dirPath = positionals[0];
+    validateGapDirectory(dirPath);
+  } else {
+    console.error("Usage: ./scripts/validate-structure.js [gap-directory]");
+    process.exit(1);
+  }
 }
 
 main();
