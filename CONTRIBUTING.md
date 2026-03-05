@@ -7,7 +7,11 @@ that address issues outside the core GraphQL specifications.
 
 GAPs use number ranges to categorize different types of proposals:
 
-- **1XXX** — Community directive specifications
+| Range | Category                         |
+| ----- | -------------------------------- |
+| 1XXX  | Community Directives             |
+| 2XXX  | Language & Spec Extensions       |
+| 3XXX  | Ecosystem Conventions & Patterns |
 
 Other ranges may be added in the future as new categories are identified. The
 TSC are responsible for creating new GAP ranges.
