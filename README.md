@@ -1,4 +1,4 @@
-# GraphQL Auxiliary Proposals (GAPs)
+ GraphQL Auxiliary Proposals (GAPs)
 
 This repository provides a public home for GraphQL Auxiliary Proposals (GAPs),
 community specifications and auxiliary proposals that address issues outside of
@@ -21,7 +21,7 @@ GAPs use number ranges to categorize different types of proposals:
 
 | Range | Category                         |
 | ----- | -------------------------------- |
-| 1XXX  | Community Directives             |
+| 1XXX  | Directive Specifications         |
 | 2XXX  | Language & Spec Extensions       |
 | 3XXX  | Ecosystem Conventions & Patterns |
 

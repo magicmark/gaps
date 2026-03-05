@@ -9,7 +9,7 @@ GAPs use number ranges to categorize different types of proposals:
 
 | Range | Category                         |
 | ----- | -------------------------------- |
-| 1XXX  | Community Directives             |
+| 1XXX  | Directive Specifications         |
 | 2XXX  | Language & Spec Extensions       |
 | 3XXX  | Ecosystem Conventions & Patterns |
 
