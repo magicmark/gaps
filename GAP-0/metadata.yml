@@ -1,0 +1,7 @@
+id: 0
+title: "Fully Qualified Operation Names"
+status: proposal
+authors:
+  - "Mark Larah <markl@yelp.com>"
+sponsor: "@magicmark"
+discussion: "https://github.com/graphql/graphql-spec/issues/1185"
