@@ -92,6 +92,147 @@ request to the server. Mock values are resolved from a *mock file*. When the
 server's response is received, the client merges each *mock value* into the
 response before yielding to the application.
 
+### List Fields
+
+When `@mock` is applied to a field whose return type is a List type, the
+{"data"} value in the corresponding *mock variant* must be a JSON array. Each
+element in the array represents one item in the mocked list.
+
+The `@mock` directive applies to the field as a whole — the entire list is
+replaced by the *mock value*. There is no mechanism in this version of the
+specification to target individual items within the list by index.
+
+When `@mock` is applied to a field within the selection set of a list-typed
+field (i.e. a field on the list's element type), the *mock value* is applied
+uniformly to every item in the list. In this case, {"data"} is a single value
+(not an array), and the client must merge it into each list item.
+
+Clients must validate that the *mock value* is a JSON array when the mocked
+field's return type is a List type, and must raise an error if the *mock value*
+is not an array (unless the field is nullable and the *mock value* is `null`).
+
+For nested list types (e.g. `[[String]]`), the *mock value* must be a nested
+JSON array matching the expected depth.
+
+**Example: Mocking a List Field**
+
+```graphql example
+query GetBusinessReviews {
+  business(id: "123") {
+    name
+    reviews @mock(variant: "mixed-reviews") {
+      author
+      rating
+      text
+    }
+  }
+}
+```
+
+The corresponding *mock file* entry:
+
+```json example
+{
+  "mixed-reviews": {
+    "data": [
+      { "author": "Alice Chen", "rating": 5, "text": "Excellent!" },
+      { "author": "Bob Martinez", "rating": 2, "text": "Disappointing." },
+      { "author": "Carol Wu", "rating": 4, "text": "Pretty good." }
+    ],
+    "__appliesTo__": "Business.reviews",
+    "__description__": "A mix of positive and negative reviews"
+  }
+}
+```
+
+The client replaces the entire `reviews` list with the mock data. The `name`
+field is still resolved from the server.
+
+**Example: Mocking a Field Inside a List**
+
+```graphql example
+query GetBusinesses {
+  businesses {
+    name
+    hours @mock(variant: "morning-only") {
+      open
+      close
+    }
+  }
+}
+```
+
+```json example
+{
+  "morning-only": {
+    "data": {
+      "open": "8:00am",
+      "close": "12:00pm"
+    },
+    "__appliesTo__": "Business.hours"
+  }
+}
+```
+
+In this case, `businesses` is resolved from the server. Every item in the
+resulting list receives the same mock value for `hours`. If the server returns
+5 businesses, all 5 will have `hours` set to `{"open": "8:00am", "close":
+"12:00pm"}`.
+
+If varied mock data is needed across list items, `@mock` should be applied to
+the list field itself with a *mock value* containing the full array.
+
+### Abstract Types in List Contexts
+
+When `@mock` is applied to a field within an inline fragment on a concrete type
+(e.g. `... on Product { price @mock(...) }`), and the enclosing field returns
+a list of an abstract type (interface or union), the *mock value* is applied
+uniformly to every list item whose runtime type matches the fragment's type
+condition. List items whose runtime type does not match the fragment's type
+condition are not affected.
+
+The client must determine the runtime type of each list item (e.g. via
+`__typename`) to correctly apply type-conditional mock values.
+
+The {"__appliesTo__"} value for a *mock variant* used within an inline fragment
+must use the concrete type's
+_[schema coordinate](https://spec.graphql.org/September2025/#sec-Schema-Coordinates)_
+(e.g. `"Product.price"`), not the abstract type's coordinate.
+
+When mocking an entire list field whose return type is an abstract type, each
+element in the {"data"} array must include a `"__typename"` field whose value
+is a concrete type that implements the interface or is a member of the union.
+
+**Example**
+
+```graphql example
+query SearchResults {
+  search(query: "coffee") @mock(variant: "mixed-results") {
+    id
+    title
+    ... on Article { body }
+    ... on Product { price }
+  }
+}
+```
+
+```json example
+{
+  "mixed-results": {
+    "data": [
+      { "__typename": "Article", "id": "1", "title": "Brewing Guide", "body": "..." },
+      { "__typename": "Product", "id": "2", "title": "Coffee Beans", "price": 12.99 }
+    ],
+    "__appliesTo__": "Query.search",
+    "__description__": "Mixed search results with an article and a product"
+  }
+}
+```
+
+Note: A future version of this specification may introduce a mechanism to target
+individual list items by index or position. See
+[Appendix: Future Considerations for List Item Targeting](#sec-Future-Considerations-for-List-Item-Targeting).
+
 Mock values must **not** be generated dynamically at runtime. Mock values must
 be resolved from the *mock file*.
 
@@ -163,6 +304,9 @@ The *mock variant* object may contain only the following keys:
 #### data
 
 :: {"data"} stores the *mock value*. It may be `null` if the field is nullable.
+When the mocked field's return type is a List type, {"data"} must be a JSON
+array (or `null` if the field is nullable). Each element of the array
+corresponds to one item in the returned list.
 
 #### errors
 
@@ -273,6 +417,11 @@ indicating the available mock ids.
 If a *mock value* does not conform to the expected shape, client behavior is
 implementation-defined. Clients should validate mock values and provide helpful
 error messages during development.
+
+For List-typed fields, clients should additionally validate that the *mock
+value* is an array. Providing a non-array value for a List-typed field, or an
+array value for a non-List-typed field, should be treated as an invalid *mock
+value*.
 
 # Mock Generation
 
@@ -391,6 +540,30 @@ The values generated for leaf nodes do not matter and do not need to be
 preserved or included in the description - unless otherwise specified by the
 user.
 
+### List Fields
+
+When generating mocks for List-typed fields, the `data` value must be a JSON
+array. Generate a plausible number of items (typically 2-5) with realistic
+variation between items. Ensure each item in the array conforms to the
+selection set of the mocked field.
+
+When generating mocks for a list of an abstract type (interface or union),
+include a `"__typename"` field in each array element to identify the concrete
+type. Vary the types across items for realistic test coverage.
+
+**Example**
+
+For a field `reviews: [Review]` with selections `{ author rating text }`:
+
+\`\`\`json
+{
+  "data": [
+    { "author": "Alice Chen", "rating": 5, "text": "Absolutely wonderful!" },
+    { "author": "Marcus Johnson", "rating": 3, "text": "Average, nothing special." }
+  ]
+}
+\`\`\`
+
 ### Errors
 
 When the mock should represent an error state, use the GraphQL errors format -
@@ -470,6 +643,56 @@ This mechanism is implementation defined.
 The reference implementation for web serializes the contents of all mock files
 into a single JSON object, and is embedded on the webpage in a `<script>` HTML
 tag.
+
+## Future Considerations for List Item Targeting
+
+_This section is non-normative._
+
+The current specification requires that `@mock` applied to a List-typed field
+replaces the entire list. When `@mock` is applied to a field within a list
+item's selection set, the mock value is applied uniformly to all items. This is
+sufficient for many use cases but does not address scenarios where a developer
+needs different mock behavior for specific items in a list. Examples include:
+
+- Mocking the first item in a list to simulate an error state while leaving
+  other items server-resolved.
+- Providing distinct mock data for specific list indices to test edge cases in
+  rendering logic (e.g. the 0th item has a long title, the 3rd item is missing
+  an optional field).
+- Simulating a list where only some items contain fields that do not yet exist
+  in the schema.
+
+A future version of this specification may introduce list-item targeting. The
+design space includes, but is not limited to:
+
+- An argument on the `@mock` directive for specifying indices (e.g. an `index`
+  argument).
+- A companion directive (e.g. `@mockList`) that accepts an ordered array of
+  variant IDs, one per list item, composing a list from individually defined
+  variants.
+- A convention within the *mock file* format for keying mock values by list
+  position.
+
+Note: Positional index-based targeting (similar to CSS `nth-child`) presents
+stability challenges for GraphQL lists. Unlike DOM elements, GraphQL list
+ordering is server-controlled and may change due to sort order, pagination,
+filtering, or data updates. Any future per-item mechanism must consider that
+the server, not the client, determines list composition and order.
+
+Note: Abstract types (interfaces and unions) in lists present additional
+complexity for per-item targeting. When a list contains items of different
+concrete types, index-based targeting must define whether positions are absolute
+(within the full list) or relative (within items of a specific concrete type).
+Future designs should address this ambiguity.
+
+No particular approach is endorsed at this time. Implementers who need
+per-item mock behavior before a future specification addresses it should
+document their extensions clearly and be prepared to migrate when normative
+text is adopted.
+
+The following argument names are under consideration and should be treated as
+reserved for future use on the `@mock` directive: {"index"}, {"at"},
+{"listIndex"}.
 
 ## Schema-Aware Clients
 
