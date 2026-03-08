@@ -5,6 +5,7 @@
 ```graphql
 directive @mock(
   variant: String
+  value: String
 ) on QUERY | MUTATION | SUBSCRIPTION | FIELD
 ```
 
@@ -61,6 +62,21 @@ the application.
 Multiple mocks for the same selection in an operation may be defined, allowing
 developers to swap out what is returned by changing the argument to `@mock`.
 
+For scalar fields, `@mock` can also accept an inline {"value"} argument,
+providing the mock response directly in the query without a mock file:
+
+```graphql example
+query GetBusinessInfo {
+  business(id: "123") {
+    name @mock(value: "The Great British Bakery")
+    hours @mock(variant: "morning-only") {
+      open
+      close
+    }
+  }
+}
+```
+
 `@mock` may also be applied to operation roots, preventing a network request
 entirely:
 
@@ -75,22 +91,62 @@ query GetBusinessInfo @mock(variant: "five-star-bakery") {
 
 # Directive
 
-## Mock Variants
+## Arguments
 
-`@mock` accepts a required {"variant"} argument which maps to a *mock variant
-id*. This uniquely identifies a *mock value* (stored in the *mock file*) to
-return for the field or operation where `@mock` is applied.
+`@mock` accepts two mutually exclusive arguments: {"variant"} and {"value"}.
+Exactly one of these arguments must be provided. Providing both {"variant"} and
+{"value"} in the same `@mock` application is a validation error. Providing
+neither is also a validation error.
+
+### variant
+
+{"variant"} maps to a *mock variant id*. This uniquely identifies a
+*mock value* (stored in the *mock file*) to return for the field or operation
+where `@mock` is applied.
+
+### value
+
+{"value"} provides an inline *mock value* directly in the operation document.
+When {"value"} is provided, the client uses the supplied string as the mock
+response for the annotated field without consulting a *mock file*.
+
+{"value"} may only be applied to fields that resolve to
+_[leaf types](https://spec.graphql.org/September2025/#sec-Leaf-Field-Selections)_
+(scalars and enums). It must not be applied to fields that return object types
+or to operation roots. The client must coerce the string value to the field's
+expected scalar type (for example, `"42"` becomes the integer {42} for an
+{Int} field, and `"true"` becomes the boolean {true} for a {Boolean} field).
+
+```graphql example
+query GetBusinessInfo {
+  business(id: "123") {
+    name @mock(value: "The Great British Bakery")
+    rating @mock(value: "4.5")
+    isOpen @mock(value: "true")
+    hours @mock(variant: "morning-only") {
+      open
+      close
+    }
+  }
+}
+```
+
+Note: {"value"} is useful for quick, self-contained mocks of scalar fields
+where the overhead of creating and maintaining a *mock file* entry is not
+warranted.
 
 ## Returning Mock Data
 
 If `@mock` is applied to the operation's root field (e.g. {"query"}), the entire
-response must be resolved from a *mock file*. 
+response must be resolved from a *mock file*. The {"value"} argument must not be
+used on operation roots.
 
 If `@mock` is applied to non-root fields only, the client must transform the
 document to remove any selections which have `@mock` applied before sending the
-request to the server. Mock values are resolved from a *mock file*. When the
-server's response is received, the client merges each *mock value* into the
-response before yielding to the application.
+request to the server. For fields using {"variant"}, mock values are resolved
+from a *mock file*. For fields using {"value"}, the mock value is the coerced
+inline string. When the server's response is received, the client merges each
+*mock value* into the response before yielding to the application.
 
 When `@mock` is applied to a field, the *mock value* must always be included in
 the response, regardless of other directives present on the same field. In
@@ -99,7 +155,7 @@ data is always returned, irrespective of whether the field would otherwise be
 skipped or included based on those directives' conditions.
 
 Mock values must **not** be generated dynamically at runtime. Mock values must
-be resolved from the *mock file*.
+be resolved from the *mock file* or from the inline {"value"} argument.
 
 The mechanism for GraphQL clients running in a web browser or mobile client to
 read the *mock file* is implementation defined. See:
@@ -107,8 +163,10 @@ read the *mock file* is implementation defined. See:
 
 ## Mock Files
 
-Each operation or fragment that contains one or more `@mock` directives must
-have an associated *mock file*.
+Each operation or fragment that contains one or more `@mock` directives using
+the {"variant"} argument must have an associated *mock file*. Operations or
+fragments where all `@mock` directives use only the {"value"} argument do not
+require a *mock file*.
 
 :: A *mock file* is a JSON file which maps *mock variant id* keys to a
 *mock variant*.
@@ -279,6 +337,19 @@ indicating the available mock ids.
 If a *mock value* does not conform to the expected shape, client behavior is
 implementation-defined. Clients should validate mock values and provide helpful
 error messages during development.
+
+### Inline Value Validation
+
+If {"value"} is applied to a field that does not resolve to a leaf type (scalar
+or enum), the client must raise an error.
+
+If {"value"} is applied to an operation root, the client must raise an error.
+
+If the {"value"} string cannot be coerced to the field's expected scalar type,
+the client must raise an error.
+
+If both {"variant"} and {"value"} are provided in the same `@mock` application,
+the client must raise an error.
 
 # Mock Generation
 
