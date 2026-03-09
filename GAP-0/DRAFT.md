@@ -92,6 +92,9 @@ request to the server. Mock values are resolved from a *mock file*. When the
 server's response is received, the client merges each *mock value* into the
 response before yielding to the application.
 
+When `@mock` is applied to a field within the selection set of a list-typed
+parent field, the same *mock value* is applied to every item in the list.
+
 Mock values must **not** be generated dynamically at runtime. Mock values must
 be resolved from the *mock file*.
 
