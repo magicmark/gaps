@@ -39,7 +39,7 @@ query GetBusinessInfo {
 }
 ```
 
-Mock data is stored and returned statically from JSON files:
+Mock data may be stored and returned statically from JSON files:
 
 ```json example
 {
@@ -53,29 +53,23 @@ Mock data is stored and returned statically from JSON files:
 }
 ```
 
+For scalar fields, `@mock` can also accept an inline {"value"} argument,
+providing the mock response directly in the operation without a mock file:
+
+```graphql example
+query GetBusinessInfo {
+  business(id: "123") {
+    name
+    website @mock(value: "https://www.example.com")
+  }
+}
+```
+
 The client transforms the document to remove mocked
 _[selections](https://spec.graphql.org/September2025/#Selection)_ before
 executing or sending the request to the server. Upon receiving a response from
 the server, mock values are merged into the response object before yielding to
 the application.
-
-Multiple mocks for the same selection in an operation may be defined, allowing
-developers to swap out what is returned by changing the argument to `@mock`.
-
-For scalar fields, `@mock` can also accept an inline {"value"} argument,
-providing the mock response directly in the query without a mock file:
-
-```graphql example
-query GetBusinessInfo {
-  business(id: "123") {
-    name @mock(value: "The Great British Bakery")
-    hours @mock(variant: "morning-only") {
-      open
-      close
-    }
-  }
-}
-```
 
 `@mock` may also be applied to operation roots, preventing a network request
 entirely:
@@ -95,8 +89,7 @@ query GetBusinessInfo @mock(variant: "five-star-bakery") {
 
 `@mock` accepts two mutually exclusive arguments: {"variant"} and {"value"}.
 Exactly one of these arguments must be provided. Providing both {"variant"} and
-{"value"} in the same `@mock` application is a validation error. Providing
-neither is also a validation error.
+{"value"} in the same `@mock` application is a validation error.
 
 ### variant
 
