@@ -2,6 +2,6 @@ id: 0
 title: @mock Directive
 status: draft
 authors:
-  - "Mark Larah <mark@graphql.org>"
+  - "Mark Larah <markl@yelp.com>"
 sponsor: "@magicmark"
 discussion: "https://github.com/graphql/ai-wg/issues/79"
