@@ -1,15 +1,4 @@
-# GraphQL Mock Specification
-
-*Draft - February 2026*
-
-```graphql
-directive @mock(
-  variant: String
-  value: String
-) on QUERY | MUTATION | SUBSCRIPTION | FIELD
-```
-
-# Overview
+# GraphQL @mock Directive Specification
 
 This specification defines the `@mock` directive to allow GraphQL clients to
 return mocked data for fields or entire operations.
@@ -19,16 +8,25 @@ system. This enables backend and client developers to work in parallel; client
 developers can start building applications using expected new fields without
 waiting for the server to implement the new schema.
 
-Use of Large Language Models (LLMs) is suggested as a means of creating and
-maintaining mock data. Mock data is stored in JSON files and read statically
-when requests are executed.
-
-**Example**
-
-`@mock` can be applied to fields:
+This specification defines the `@mock` directive to allow GraphQL clients to
+use mock data for new and existing fields. Responses can be partially or
+entirely mocked.
 
 ```graphql example
 query GetBusinessInfo {
+  business(id: "123") {
+    name
+    # this field doesn't exist yet on the server!
+    website @mock(value: "https://www.example.com")
+  }
+}
+```
+
+`@mock` can also be used to mock subtrees and whole operations:
+
+```graphql example
+# mock just the 'hours' field
+query GetBusinessHours {
   business(id: "123") {
     name
     hours @mock(variant: "morning-only") {
@@ -37,9 +35,19 @@ query GetBusinessInfo {
     }
   }
 }
+
+# mock the entire operation
+query GetBusinessRating @mock(variant: "five-star-bakery") {
+  business(variant: "123") {
+    name
+    rating
+  }
+}
 ```
 
-Mock data may be stored and returned statically from JSON files:
+
+Mock data is stored in JSON files and read statically when requests are
+executed:
 
 ```json example
 {
@@ -53,37 +61,23 @@ Mock data may be stored and returned statically from JSON files:
 }
 ```
 
-For scalar fields, `@mock` can also accept an inline {"value"} argument,
-providing the mock response directly in the operation without a mock file:
-
-```graphql example
-query GetBusinessInfo {
-  business(id: "123") {
-    name
-    website @mock(value: "https://www.example.com")
-  }
-}
-```
-
 The client transforms the document to remove mocked
 _[selections](https://spec.graphql.org/September2025/#Selection)_ before
 executing or sending the request to the server. Upon receiving a response from
 the server, mock values are merged into the response object before yielding to
 the application.
 
-`@mock` may also be applied to operation roots, preventing a network request
-entirely:
-
-```graphql example
-query GetBusinessInfo @mock(variant: "five-star-bakery") {
-  business(variant: "123") {
-    name
-    rating
-  }
-}
-```
+Use of Large Language Models (LLMs) is suggested as a means of creating and
+maintaining mock data.
 
 # Directive
+
+```graphql
+directive @mock(
+  variant: String
+  value: String
+) on QUERY | MUTATION | SUBSCRIPTION | FIELD
+```
 
 ## Arguments
 
@@ -154,7 +148,7 @@ The mechanism for GraphQL clients running in a web browser or mobile client to
 read the *mock file* is implementation defined. See:
 [Appendix: Reading Mock Files](#sec-Reading-Mock-Files).
 
-## Mock Files
+# Mock Files
 
 Each operation or fragment that contains one or more `@mock` directives using
 the {"variant"} argument must have an associated *mock file*. Operations or
@@ -164,21 +158,19 @@ require a *mock file*.
 :: A *mock file* is a JSON file which maps *mock variant id* keys to a
 *mock variant*.
 
-:: The *executable target* of a *mock file* is defined to be the name of the
-operation or fragment in which mock variants defined in the mock file may be
-applied.
+:: The *executable target* of a *mock file* is defined to be the name of an
+[ExecutableDefinition](https://spec.graphql.org/September2025/#ExecutableDefinition)
+(that is, an operation or fragment) in which the mock values may be used.
 
-Mock files are intended to be long-lived and may checked into version control.
+Note: Mock files are intended to be long-lived and may checked into version
+control. This is useful for client developers working on a project over an
+extended period of time, and where the client code depends on GraphQL schema
+that does not yet exist.
 
-Note: This is useful for client developers working on a project over an extended
-period of time, and where the client code depends on GraphQL schema that does
-not yet exist.
+## Mock File Location
 
-### Mock File Location
-
-The *mock file* must be named `{Name}.json`, where `{Name}` is the name of the
-*executable target* (that is, the name of the operation or fragment in which
-the mock variants may be applied).
+The *mock file* must be named `{Name}.json`, where `{Name}` is the name of its 
+*executable target*.
 
 TODO: Support multiple files per target - instead of {Name}.json, it could
 be a directory of mock files, nested by the operation target - i.e.
@@ -198,7 +190,7 @@ For an operation named `GetBusinessInfo` defined in `BusinessDetails.graphql`:
 └── BusinessDetails.graphql
 ```
 
-### Mock File Structure
+## Mock File Structure
 
 The mock file contains a JSON object which maps *mock variant id* keys to a
 *mock variant*.
@@ -206,9 +198,11 @@ The mock file contains a JSON object which maps *mock variant id* keys to a
 :: A *mock variant id* is any key in the object that does not start with two
 underscores (`__`).
 
-:: A *mock vatiant* is the object associated with each *mock variant id*.
+:: A *mock variant* is the object associated with each *mock variant id*.
 
-The *mock variant* object may contain only the following keys:
+### Mock Variant Object
+
+A *mock variant* object may contain **only** the following keys:
 
 - {"data"} (required)
 - {"errors"}
@@ -236,7 +230,7 @@ into the GraphQL operation's response if defined.
 
 TODO: Define merging algorithm and resolution algorithm for conflicts
 
-#### ___description__
+**___description__**
 
 {"__description__"} may contain a string which describes the *mock value* in
 natural language. This value should be used when regenerating the *mock value*.
@@ -344,7 +338,7 @@ the client must raise an error.
 If both {"variant"} and {"value"} are provided in the same `@mock` application,
 the client must raise an error.
 
-# Mock Generation
+# Mock File Generation
 
 The mechanism for generating and maintaining mock files is
 implementation-defined.
@@ -364,138 +358,15 @@ For example, a developer may add a mock with the following prompt:
 
 **Non-Normative: Suggested Agent Skill**
 
-Implementers of this specification could provide an
+Implementers of this specification may provide an
 [Agent Skill](https://agentskills.io/home) conforming to the Agent Skills
 Specification. This allows coding agents to discover and use mock management
 capabilities.
 
 The following is a suggested `SKILL.md`. Implementers are welcome to replace or
-adapt this prompt to suit their implementation.
+adapt this prompt to suit their implementation:
 
-```markdown
----
-name: gql-mock-manager
-description: Create and edit mock values for GraphQL operations using the @mock directive
----
-
-This skill manages mock values for GraphQL operations using the `@mock`
-directive.
-
-## Capabilities
-
-- **Add mock variant**: Create a new named mock value for an existing operation
-- **Modify mock**: Update an existing mock value
-- **List mocks**: Show available mock ids for an operation
-
-## Mock Files
-
-Mock files are located in `__graphql_mocks__/{Name}.json` adjacent to
-the source file containing the operation or fragment. {Name} is the name of
-that operation or fragment.
-
-Each mock file is a JSON object where keys are "mock variant ids" and values are
-"mock variants".
-
-A "mock variant" is an object containing the following attributes:
-
-- **`data`** (required): The mock value - the raw data to be returned - defined by https://spec.graphql.org/September2025/#sec-Data.
-- **`errors`**: May contain an errors array - defined by https://spec.graphql.org/September2025/#sec-Errors.
-- **`extensions`**: May contain aribtrary data - defined by https://spec.graphql.org/September2025/#sec-Extensions.
-- **`__appliesTo__`** (required): The schema coordinate for which the mock value is valid - defined by https://spec.graphql.org/September2025/#sec-Schema-Coordinates.
-- **`__description__`**: A natural language description of the data being returned.
-- **`__metadata__`**: May contain a key/value mapping of arbitrary data.
-
-**Example**
-
-\`\`\`json
-{
-  "5-star-business: {
-    "data": {
-      "business": {
-        "name": "The Great British Bakery",
-        "rating": 5.0
-      }
-    },
-    "__appliesTo__": "Query",
-    "__description__": "A delicious bakery with a rating of 5.0"
-  },
-  "has-no-rating": {
-    "data": {
-      "business": {
-        "name": "El Greco Deli",
-        "rating": null
-      }
-    },
-    "__appliesTo__": "Query",
-    "__description__": "A new restaurant which has not yet been rated - the rating field returns null"
-  },
-}
-\`\`\`
-
-## Generating mock variants
-
-When generating a new mock value, add the following to your context window:
-
-- the user's prompt (e.g. "add a @mock response for this field <highlighted position>)
-- the corresponding selection and nested selection set in the operation or fragment
-- the GraphQL schema. It is posisble that some of the fields in the mock
-  response already exist in the schema, and may be looked up - you can use the
-  fields' descriptions, sibling fields' descriptions and the field's parent type
-  description as additional context.
-
-When regenerating an existing mock value, also include the exising mock value
-payload and preserve as much as possible (unless the user has specified
-otherwise).
-
-Ensure the generated mock value is valid against the selections in the operation
-or fragment.
-
-Use plausible and realistic values. e.g. for "Business.name", use a made-up
-business name such as "The Great British Bakery". Avoid using "foo", "bar",
-"myBusiness", "string" etc as values.
-
-Generate a __description__ field which summarizes the output, and has enough
-context such that it could be used to regenerate a similarly shaped payload.
-
-The values generated for leaf nodes do not matter and do not need to be
-preserved or included in the description - unless otherwise specified by the
-user.
-
-### Errors
-
-When the mock should represent an error state, use the GraphQL errors format -
-unless you know that the schema uses a union to represent error state. You must
-check against the schema.
-
-**Example**
-
-\`\`\`json
-{
-  "data": { "fieldName": null },
-  "errors": [{
-    "path": ["fieldName"],
-    "message": "field error"
-  }]
-}
-\`\`\`
-
-## Instructions
-
-When asked to add or update a mock variant:
-
-1. Locate the operation or fragment's mock file
-2. Read the existing mock file to understand the mock value shape
-3. If creating a new mock, create a new entry with a descriptive mock variant id
-4. Ensure the mock value includes appropriate `data` and/or `errors` fields
-5. Add a summary of the user's prompt to the `__description__` field
-6. Write the updated mock file
-
-## Schema
-
-Look for the GraphQL schema in <repo_root>/schema.graphql to understand what
-shape of data should be returned. Ask the user if this file cannot be found, and
-remember where it is located for future. 
-```
+[SKILL.md](./SKILL.md)
 
 # Appendix
 
