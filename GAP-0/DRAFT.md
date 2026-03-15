@@ -3,14 +3,11 @@
 This specification defines the `@mock` directive to allow GraphQL clients to
 return mocked data for fields or entire operations.
 
-Mock data may be defined for fields and types that do not exist in the type
-system. This enables backend and client developers to work in parallel; client
+Mock data may be defined for fields and types that do not yet exist in the
+schema. This enables backend and client developers to work in parallel — client
 developers can start building applications using expected new fields without
 waiting for the server to implement the new schema.
 
-This specification defines the `@mock` directive to allow GraphQL clients to
-use mock data for new and existing fields. Responses can be partially or
-entirely mocked.
 
 ```graphql example
 query GetBusinessInfo {
