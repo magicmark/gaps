@@ -295,7 +295,7 @@ This would be a (minimally) valid corresponding *mock file*:
 {"__metadata__"} may be a key-value mapping for additional user or application
 defined metadata.
 
-# Static Validation
+# Validation
 
 As development progresses, the shape of the operation or schema may change.
 Since mock files may be checked into version control and persist across schema
@@ -330,12 +330,68 @@ to include any new types and fields referenced in the *mock value*.
 
 ## Inline Mock Value Validation
 
-IsInlineValueValid(field, schema) :
-  1. If {field} has children, return {false}.
-  1. If {field} exists in {schema}:
-      1. Let {coerced} be the result of {CoerceInlineValue(value)}.
-      1. If {coerced} is not the return type of {field}, return {false}.
-  1. Return {true}.
+The {"value"} argument may only be used on scalar fields. When the field exists
+in the schema, the coerced value must match the field's return type.
+
+**Formal Specification**
+
+ValidateInlineValueArgument(field, schema) :
+  1. If the `@mock` directive on {field} uses the {"value"} argument:
+      * {field} must not have a {selectionSet}.
+      * The {"variant"} argument must not be present.
+      * Let {value} be the string provided to the {"value"} argument.
+      * If {field} exists in {schema}:
+        * Let {coerced} be the result of {CoerceInlineValue(value)}.
+        * {coerced} must be the return type of {field}.
+
+## Nested @mock Validation
+
+`@mock` must not be used on a field that is a child of another field which also
+uses `@mock`:
+
+```graphql counter-example
+query Foo {
+  bar @mock(variant: "bar-fields") {
+    # ❌ Validation error: @mock on baz is nested inside @mock on bar
+    baz @mock(value: "hi from baz")
+  }
+}
+```
+
+This rule extends across fragment boundaries. *FragmentSpread* nodes must be
+recursively expanded:
+
+```graphql counter-example
+fragment FooFields on Foo {
+  # ❌ Validation error: @mock on bar would be nested inside MockedFoo
+  bar @mock(value: "baz")
+}
+
+query UnmockedFoo {
+  foo {
+    ...FooFields
+  }
+}
+
+query MockedFoo {
+  foo @mock(variant: "foo-fields") {
+    ...FooFields
+  }
+}
+```
+
+**Formal Specification**
+
+ValidateNoNestedMocks(selectionSet, isMockedByParent) :
+  1. For each {selection} in {selectionSet}, expanding any fragment spreads:
+    * Let {fieldUsesMock} be {true} if {selection} has a `@mock` directive,
+      otherwise {false}.
+    * If {isMockedByParent} is {true}, {fieldUsesMock} must be {false}.
+    * Let {isChildrenMocked} be {true} if both {isMockedByParent} and
+      {fieldUsesMock} is {true}, otherwise {false}.
+    * If {selection} has a {selectionSet}:
+      * Let {nextSelectionSet} be that {selectionSet}.
+      * Call {ValidateNoNestedMocks(nextSelectionSet, isChildrenMocked)}.
 
 # Mock File Generation
 
