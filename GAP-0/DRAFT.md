@@ -53,7 +53,7 @@ executed:
       "open": "8:00am",
       "close": "12:00pm"
     },
-    "__appliesTo__": "Business.hours"
+    "__path__": "Query"
   }
 }
 ```
@@ -147,17 +147,13 @@ read the *mock file* is implementation defined. See:
 
 # Mock Files
 
+:: A *mock file* is a `.json` file that maps each *mock variant id* to a
+*mock variant*.
+
 Each operation or fragment that contains one or more `@mock` directives using
 the {"variant"} argument must have an associated *mock file*. Operations or
 fragments where all `@mock` directives use only the {"value"} argument do not
 require a *mock file*.
-
-:: A *mock file* is a JSON file which maps *mock variant id* keys to a
-*mock variant*.
-
-:: The *executable target* of a *mock file* is defined to be the name of an
-[ExecutableDefinition](https://spec.graphql.org/September2025/#ExecutableDefinition)
-(that is, an operation or fragment) in which the mock values may be used.
 
 Note: Mock files are intended to be long-lived and may checked into version
 control. This is useful for client developers working on a project over an
@@ -166,17 +162,16 @@ that does not yet exist.
 
 ## Mock File Location
 
-The *mock file* must be named `{Name}.json`, where `{Name}` is the name of its 
-*executable target*.
+The *mock file* must be named `{Name}.json`, where `{Name}` is the name of the
+operation or fragment for which the mock values may be be used.
 
-TODO: Support multiple files per target - instead of {Name}.json, it could
-be a directory of mock files, nested by the operation target - i.e.
-{Name}/arbitrary.json
+To avoid mock file naming collisions, this specification requires that all
+operation and fragment names within a project are unique.
 
-Mock files should be stored in a `__graphql_mocks__` directory adjacent to the
-source file containing the *operation target*.
+The mock file for must be stored in directory named {"__graphql_mocks__"}
+adjacent to the source file containing the operation or fragment.
 
-**Example**
+*Example**
 
 For an operation named `GetBusinessInfo` defined in `BusinessDetails.graphql`:
 
@@ -186,6 +181,10 @@ For an operation named `GetBusinessInfo` defined in `BusinessDetails.graphql`:
 │   └── GetBusinessInfo.json
 └── BusinessDetails.graphql
 ```
+
+TODO: Support multiple files per operation/fragment. Instead of {Name}.json, it
+may be a directory of mock files, nested by the operation/fragment name. e.g.
+`{Name}/arbitrary.json`.
 
 ## Mock File Structure
 
@@ -204,7 +203,7 @@ A *mock variant* object may contain **only** the following keys:
 - {"data"} (required)
 - {"errors"}
 - {"extensions"}
-- {"__appliesTo__"} (required)
+- {"__path__"} (required)
 - {"__description__"}
 - {"__metadata__"}
 
@@ -241,18 +240,26 @@ natural language. This value should be used when regenerating the *mock value*.
         "rating": 5.0
       }
     },
-    "__appliesTo__": "Query",
+    "__path__": "Query",
     "__description__": "A delicious bakery with a rating of 5.0"
   },
 }
 ```
 
-#### __appliesTo__
+#### __path__
 
-{"__appliesTo__"} must be defined as the resolved
-_[schema coordinate](https://spec.graphql.org/September2025/#sec-Schema-Coordinates)_
-of the field or root operation type where `@mock` is applied, or may be applied,
-with the *mock variant id*.
+{"__path__"} is the *field path* within the operation or fragment where `@mock`
+is or may be applied for a given *mock variant id*.
+
+: A *field path* is a dot-separated string of field names (or aliases, where
+present) representing the location of the field relative to the root of the
+operation or fragment. 
+
+TODO: Define field paths in a separate specification. See
+https://github.com/graphql/graphql-spec/issues/1215
+
+For `@mock` on an operation root, {"__path__"} is the root operation type name
+(e.g. {"Query"}).
 
 **Example**
 
@@ -260,27 +267,34 @@ For the following fragment:
 
 ```graphql example
 fragment FooFields on Foo {
-  # location resolves to "Foo.bar"
+  # field path is "bar"
   bar @mock(variant: "basic-bar")
 
-  # location resolves to "Foo.baz"
-  baz @mock(variant: "basic-baz") {
-    qux
+  # field path is "aliasedBar"
+  aliasedBar: bar @mock(variant: "basic-bar")
+
+  baz {
+    # field path is "baz.qux"
+    qux @mock(variant: "basic-qux")
   }
 }
 ```
 
-This would be a (minimally) vald corresponding *mock file*:
+This would be a (minimally) valid corresponding *mock file*:
 
 ```json example
 {
   "basic-bar": {
     "data": "...",
-    "__appliesTo": "Foo.bar"
+    "__path__": "bar"
   },
-  "basic-baz": {
-    "data": { "qux": "..." },
-    "__appliesTo": "Foo.baz"
+  "basic-bar": {
+    "data": "...",
+    "__path__": "aliasedBar"
+  },
+  "basic-qux": {
+    "data": "...",
+    "__appliesTo": "baz.qux"
   },
 }
 ```
@@ -367,11 +381,11 @@ adapt this prompt to suit their implementation:
 
 # Appendix
 
-_This section is non-normative and used for clarification only._
+_This section is non-normative._
 
 ## Dynamic Mock Variant IDs
 
-In theory, mock variant IDs may be derived from operation
+The {"variant"} argument could be passed in from operation
 _[variables](https://spec.graphql.org/September2025/#sec-Language.Variables)_.
 This is neither explicitly disallowed or encouraged.
 
@@ -382,7 +396,7 @@ A use case would be to build an interface to let viewers control which
 GET /my_page?gql_mock_variants=barMock=some-variant-id;bazMock=some-other-variant-id
 ```
 
-Could be used as inputs to the following operation:
+This could be mapped to operation variables for the following operation:
 
 ```graphql example
 query Foo($barMock: String, $bazMock: String) {
@@ -400,14 +414,10 @@ This is currently outside the scope of this specification.
 
 GraphQL Clients that implement this schema must have access to the data
 contained in mock files when requests are executed. Since web browsers and
-mobile applications cannot read remote filesystems, a mechanism is required
+mobile applications cannot read remote file systems, a mechanism is required
 to make the data contained in mock files available to the client.
 
 This mechanism is implementation defined.
-
-The reference implementation for web serializes the contents of all mock files
-into a single JSON object, and is embedded on the webpage in a `<script>` HTML
-tag.
 
 ## Schema-Aware Clients
 
