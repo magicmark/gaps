@@ -1,13 +1,12 @@
-# GraphQL @mock Directive Specification
+# @mock Directive Specification
 
-This specification defines the `@mock` directive to allow GraphQL clients to
+This document specifies the `@mock` directive, which allows GraphQL clients to
 return mocked data for fields or entire operations.
 
 Mock data may be defined for fields and types that do not yet exist in the
 schema. This enables backend and client developers to work in parallel — client
 developers can start building applications using expected new fields without
 waiting for the server to implement the new schema.
-
 
 ```graphql example
 query GetBusinessInfo {
@@ -35,13 +34,12 @@ query GetBusinessHours {
 
 # mock the entire operation
 query GetBusinessRating @mock(variant: "five-star-bakery") {
-  business(variant: "123") {
+  business(id: "123") {
     name
     rating
   }
 }
 ```
-
 
 Mock data is stored in JSON files and read statically when requests are
 executed:
@@ -53,7 +51,7 @@ executed:
       "open": "8:00am",
       "close": "12:00pm"
     },
-    "__path__": "Query"
+    "__path__": "business.hours"
   }
 }
 ```
@@ -90,40 +88,33 @@ where `@mock` is applied.
 
 ### value
 
-{"value"} provides an inline *mock value* directly in the operation document.
+{"value"} provides an inline *mock value* directly in the document.
+
 When {"value"} is provided, the client uses the supplied string as the mock
 response for the annotated field without consulting a *mock file*.
 
 {"value"} may only be applied to fields that resolve to
 _[leaf types](https://spec.graphql.org/September2025/#sec-Leaf-Field-Selections)_
 (scalars and enums). It must not be applied to fields that return object types
-or to operation roots. The client must coerce the string value to the field's
-expected scalar type (for example, `"42"` becomes the integer {42} for an
-{Int} field, and `"true"` becomes the boolean {true} for a {Boolean} field).
+or to operation roots.
 
-```graphql example
-query GetBusinessInfo {
-  business(id: "123") {
-    name @mock(value: "The Great British Bakery")
-    rating @mock(value: "4.5")
-    isOpen @mock(value: "true")
-    hours @mock(variant: "morning-only") {
-      open
-      close
-    }
-  }
-}
-```
+Because {"value"} is always a string, the client must coerce the string to the
+appropriate JSON type before merging it into the response:
 
-Note: {"value"} is useful for quick, self-contained mocks of scalar fields
-where the overhead of creating and maintaining a *mock file* entry is not
-warranted.
+CoerceInlineValue(value) :
+  1. If {value} is {"null"}, return `null`.
+  1. If {value} is {"true"}, return the boolean `true`.
+  1. If {value} is {"false"}, return the boolean `false`.
+  1. If {value} can be parsed as a base-10 number, return {value} as number.
+  1. Return {value} as a string.
+
+Note: This specification requires JSON as the serialization format for GraphQL
+responses.
 
 ## Returning Mock Data
 
-If `@mock` is applied to the operation's root field (e.g. {"query"}), the entire
-response must be resolved from a *mock file*. The {"value"} argument must not be
-used on operation roots.
+If `@mock` is applied to an operation definition (e.g. {"Query"}), the entire
+response must be resolved from a *mock file*.
 
 If `@mock` is applied to non-root fields only, the client must transform the
 document to remove any selections which have `@mock` applied before sending the
@@ -155,7 +146,7 @@ the {"variant"} argument must have an associated *mock file*. Operations or
 fragments where all `@mock` directives use only the {"value"} argument do not
 require a *mock file*.
 
-Note: Mock files are intended to be long-lived and may checked into version
+Note: Mock files are intended to be long-lived and may be checked into version
 control. This is useful for client developers working on a project over an
 extended period of time, and where the client code depends on GraphQL schema
 that does not yet exist.
@@ -163,15 +154,15 @@ that does not yet exist.
 ## Mock File Location
 
 The *mock file* must be named `{Name}.json`, where `{Name}` is the name of the
-operation or fragment for which the mock values may be be used.
+operation or fragment for which the mock values may be used.
 
 To avoid mock file naming collisions, this specification requires that all
 operation and fragment names within a project are unique.
 
-The mock file for must be stored in directory named {"__graphql_mocks__"}
-adjacent to the source file containing the operation or fragment.
+The mock file must be stored in a directory named {"__graphql_mocks__"} adjacent
+to the source file containing the operation or fragment.
 
-*Example**
+**Example**
 
 For an operation named `GetBusinessInfo` defined in `BusinessDetails.graphql`:
 
@@ -226,14 +217,14 @@ into the GraphQL operation's response if defined.
 
 TODO: Define merging algorithm and resolution algorithm for conflicts
 
-**___description__**
+#### __description__
 
 {"__description__"} may contain a string which describes the *mock value* in
 natural language. This value should be used when regenerating the *mock value*.
 
 ```json example
 {
-  "5-star-business: {
+  "5-star-business": {
     "data": {
       "business": {
         "name": "The Great British Bakery",
@@ -242,7 +233,7 @@ natural language. This value should be used when regenerating the *mock value*.
     },
     "__path__": "Query",
     "__description__": "A delicious bakery with a rating of 5.0"
-  },
+  }
 }
 ```
 
@@ -251,7 +242,7 @@ natural language. This value should be used when regenerating the *mock value*.
 {"__path__"} is the *field path* within the operation or fragment where `@mock`
 is or may be applied for a given *mock variant id*.
 
-: A *field path* is a dot-separated string of field names (or aliases, where
+:: A *field path* is a dot-separated string of field names (or aliases, where
 present) representing the location of the field relative to the root of the
 operation or fragment. 
 
@@ -271,7 +262,7 @@ fragment FooFields on Foo {
   bar @mock(variant: "basic-bar")
 
   # field path is "aliasedBar"
-  aliasedBar: bar @mock(variant: "basic-bar")
+  aliasedBar: bar @mock(variant: "aliased-bar")
 
   baz {
     # field path is "baz.qux"
@@ -288,14 +279,14 @@ This would be a (minimally) valid corresponding *mock file*:
     "data": "...",
     "__path__": "bar"
   },
-  "basic-bar": {
+  "aliased-bar": {
     "data": "...",
     "__path__": "aliasedBar"
   },
   "basic-qux": {
     "data": "...",
-    "__appliesTo": "baz.qux"
-  },
+    "__path__": "baz.qux"
+  }
 }
 ```
 
@@ -304,50 +295,44 @@ This would be a (minimally) valid corresponding *mock file*:
 {"__metadata__"} may be a key-value mapping for additional user or application
 defined metadata.
 
-## Mock Entry Validation
+# Static Validation
 
-### Query Changes
+As development progresses, the shape of the operation or schema may change.
+Since mock files may be checked into version control and persist across schema
+changes, an existing *mock value* in a *mock file* or inline {"value"} argument
+may become invalid over time.
 
-As development progresses, the shape of a query may change — fields may be added,
-removed, or renamed. When this happens, an existing *mock value* may no longer
-match the expected shape. Conforming clients must detect when a *mock value* is
-incompatible with its operation and force corrective action.
+Conforming clients must check that mock data is valid for each operation.
 
-Mocks must be validated as part of the application test suite.
+## Mock File Validation
 
-Note: It is possible to detect if a JSON payload is valid for a given operation
-by constructing an in-memory GraphQL server that has no resolvers, and uses the
-JSON payload as its {rootValue} - and ensuring no errors are thrown for
-execution of the operation against the test server.
+GraphQL clients must raise an error for an invalid *mock value* defined inside
+a *mock file*.
 
-GraphQL clients should warn or throw for an invalid *mock value*. Implementers
-must detect this, and similarly force corrective action (e.g. by forcing the
-user to regenerate or fix the *mock value* in the *mock file*).
+If a *mock variant id* referenced by a {"variant"} argument does not exist in
+the *mock file*, this is a validation error.
 
-### Missing Mock Name
+A *mock value* is valid when its shape is compatible with the operation's
+selections at the *field path* where `@mock` is applied. For each selected
+field, the *mock value* must satisfy
+_[CompleteValue](https://spec.graphql.org/draft/#CompleteValue())_ for the
+field's schema type. Fields present in the operation but not defined in the
+schema are skipped during validation.
 
-If the requested *mock variant* does not exist in the associated *mock file*
-for the containing operation or fragment, the client must raise an error
-indicating the available mock ids.
+Note: It is also possible to detect if a JSON payload is valid for a given
+operation by constructing an in-memory GraphQL server that has no resolvers, and
+uses the JSON payload as its {rootValue} — and ensuring no errors are thrown for
+execution of the operation against the test server. The schema must be modified
+to include any new types and fields referenced in the *mock value*.
 
-### Invalid Mock Value
+## Inline Mock Value Validation
 
-If a *mock value* does not conform to the expected shape, client behavior is
-implementation-defined. Clients should validate mock values and provide helpful
-error messages during development.
-
-### Inline Value Validation
-
-If {"value"} is applied to a field that does not resolve to a leaf type (scalar
-or enum), the client must raise an error.
-
-If {"value"} is applied to an operation root, the client must raise an error.
-
-If the {"value"} string cannot be coerced to the field's expected scalar type,
-the client must raise an error.
-
-If both {"variant"} and {"value"} are provided in the same `@mock` application,
-the client must raise an error.
+IsInlineValueValid(field, schema) :
+  1. If {field} has children, return {false}.
+  1. If {field} exists in {schema}:
+      1. Let {coerced} be the result of {CoerceInlineValue(value)}.
+      1. If {coerced} is not the return type of {field}, return {false}.
+  1. Return {true}.
 
 # Mock File Generation
 
@@ -387,7 +372,6 @@ _This section is non-normative._
 
 The {"variant"} argument could be passed in from operation
 _[variables](https://spec.graphql.org/September2025/#sec-Language.Variables)_.
-This is neither explicitly disallowed or encouraged.
 
 A use case would be to build an interface to let viewers control which
 *mock value* is used. For example, the following GET parameters:
@@ -406,13 +390,13 @@ query Foo($barMock: String, $bazMock: String) {
 ```
 
 Clients must manually coerce the directive argument variables (similar to
-[CoerceArgumentValues](https://spec.graphql.org/draft/#CoerceArgumentValues()).
+[CoerceArgumentValues](https://spec.graphql.org/draft/#CoerceArgumentValues())).
 
 This is currently outside the scope of this specification.
 
 ## Reading Mock Files
 
-GraphQL Clients that implement this schema must have access to the data
+GraphQL clients that implement this specification must have access to the data
 contained in mock files when requests are executed. Since web browsers and
 mobile applications cannot read remote file systems, a mechanism is required
 to make the data contained in mock files available to the client.
