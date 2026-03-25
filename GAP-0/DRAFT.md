@@ -306,11 +306,14 @@ Conforming clients must check that mock data is valid for each operation.
 
 ## Mock File Validation
 
-GraphQL clients must raise an error for an invalid *mock value* defined inside
-a *mock file*.
-
 If a *mock variant id* referenced by a {"variant"} argument does not exist in
 the *mock file*, this is a validation error.
+
+All *mock variant ids* within a *mock file* must be unique; duplicate keys are a
+validation error.
+
+GraphQL clients must raise an error for an invalid *mock value* defined inside
+a *mock file*.
 
 A *mock value* is valid when its shape is compatible with the operation's
 selections at the *field path* where `@mock` is applied. For each selected
