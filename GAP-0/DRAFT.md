@@ -323,8 +323,8 @@ field's schema type. Fields present in the operation but not defined in the
 schema are skipped during validation.
 
 Note: It is also possible to detect if a JSON payload is valid for a given
-operation by constructing an in-memory GraphQL server that has no resolvers, and
-uses the JSON payload as its {rootValue} — and ensuring no errors are thrown for
+operation by constructing an in-memory GraphQL server that has no resolvers and
+uses the JSON payload as its {rootValue} — then ensuring no errors are thrown for
 execution of the operation against the test server. The schema must be modified
 to include any new types and fields referenced in the *mock value*.
 
