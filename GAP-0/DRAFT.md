@@ -133,7 +133,7 @@ Mock values must **not** be generated dynamically at runtime. Mock values must
 be resolved from the *mock file* or from the inline {"value"} argument.
 
 The mechanism for GraphQL clients running in a web browser or mobile client to
-read the *mock file* is implementation defined. See:
+read the *mock file* is implementation-defined. See:
 [Appendix: Reading Mock Files](#sec-Reading-Mock-Files).
 
 # Mock Files
