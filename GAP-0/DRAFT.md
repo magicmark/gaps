@@ -460,7 +460,7 @@ contained in mock files when requests are executed. Since web browsers and
 mobile applications cannot read remote file systems, a mechanism is required
 to make the data contained in mock files available to the client.
 
-This mechanism is implementation defined.
+This mechanism is implementation-defined.
 
 ## Schema-Aware Clients
 
