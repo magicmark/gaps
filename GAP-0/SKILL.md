@@ -63,7 +63,7 @@ When generating a new mock value, add the following to your context window:
 
 - the user's prompt (e.g. "add a @mock response for this field <highlighted position>)
 - the corresponding selection and nested selection set in the operation or fragment
-- the GraphQL schema. It is posisble that some of the fields in the mock
+- the GraphQL schema. It is possible that some of the fields in the mock
   response already exist in the schema, and may be looked up - you can use the
   fields' descriptions, sibling fields' descriptions and the field's parent type
   description as additional context.
