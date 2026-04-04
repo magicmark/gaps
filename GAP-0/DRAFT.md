@@ -114,7 +114,7 @@ responses.
 ## Returning Mock Data
 
 If `@mock` is applied to an operation definition (e.g. {"Query"}), the entire
-response must be resolved from a *mock file*.
+response must be resolved from a *mock file*; no request should be sent to the server.
 
 If `@mock` is applied to non-root fields only, the client must transform the
 document to remove any selections which have `@mock` applied before sending the
