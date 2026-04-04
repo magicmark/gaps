@@ -77,7 +77,7 @@ or fragment.
 
 Use plausible and realistic values. e.g. for "Business.name", use a made-up
 business name such as "The Great British Bakery". Avoid using "foo", "bar",
-"myBusiness", "string" etc as values.
+"myBusiness", "string" etc. as values.
 
 Generate a __description__ field which summarizes the output, and has enough
 context such that it could be used to regenerate a similarly shaped payload.
