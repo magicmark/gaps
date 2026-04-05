@@ -9,7 +9,7 @@ JSON files alongside the operations that use them.
 ## Motivation
 
 Client and backend developers often work in parallel, but clients cannot build
-against schema that doesn't yet exist. The `@mock` directive lets client
+against schema that isn't yet implemented. The `@mock` directive lets client
 developers define and use mock responses for fields and types that may not yet
 be present in the server schema, unblocking frontend development.
 
