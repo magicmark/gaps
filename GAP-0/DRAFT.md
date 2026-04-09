@@ -129,6 +129,9 @@ particular, `@mock` takes precedence over `@skip` and `@include` — the mock
 data is always returned, irrespective of whether the field would otherwise be
 skipped or included based on those directives' conditions.
 
+When `@mock` is applied to a field within the selection set of a list-typed
+parent field, the same *mock value* is applied to every item in the list.
+
 Mock values must **not** be generated dynamically at runtime. Mock values must
 be resolved from the *mock file* or from the inline {"value"} argument.
 
