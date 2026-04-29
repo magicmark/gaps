@@ -220,3 +220,102 @@ If you have ideas for how to solve this, please send a pull request for a future
 spec version :)
 
 </details>
+
+### Mocking on inline fragments and fragment spreads
+
+`@mock` is not supported on inline fragments or fragment spreads:
+
+```graphql
+query Foo {
+  barOrBaz {
+    # not supported
+    ... on Bar @mock(variant: "mock-bar") {
+      hello
+    }
+    # not supported
+    ... on Baz @mock(variant: "mock-baz") {
+      world
+    }
+  }
+  qux {
+    # not supported
+    ...QuxFields @mock(variant: "mock-qux")
+  }
+}
+```
+
+Instead, apply `@mock` to individual fields within the fragment:
+
+```graphql
+query Foo {
+  barOrBaz {
+    ... on Bar {
+      hello @mock(value: "hi")
+    }
+    ... on Baz {
+      world @mock(value: "earth")
+    }
+  }
+}
+```
+
+<details>
+<summary>Why not?</summary>
+
+#### New types are unreachable
+
+The primary motivation for `@mock` is building against schema that doesn't yet
+exist. But when a type condition references a new type, the server will never
+return that type in its response — so the mock data has nowhere to be merged.
+
+```graphql
+query PetStore {
+  forSale {
+    ... on Dog {
+      breed
+    }
+    # Fish doesn't exist in the schema yet.
+    # The server will never return __typename: "Fish",
+    # so this mock data can never be inserted.
+    ... on Fish @mock(variant: "clownfish") {
+      species
+    }
+  }
+}
+```
+
+For the non-list case, the client could force-overlay the mock data, but this
+means overriding the server's type resolution — semantically different from what
+`@mock` does elsewhere, where it merges data into a known position in the
+response tree.
+
+For the list case, the client would need to *inject* new objects into the array,
+raising the same position-ambiguity problems described in
+[Why don't we allow specifying an array position?](#why-dont-we-allow-specifying-an-array-position).
+
+#### `__typename` dependency
+
+Merging mock data for a type condition requires knowing which type the server
+resolved. This means the client must rely on `__typename` being present in the
+response. While common (especially with normalized caches), this is not
+guaranteed — adding an implicit runtime dependency that field-level mocking
+does not have.
+
+#### Dead mock branches
+
+When multiple type conditions have `@mock`, only the branch matching the
+server's resolved type will trigger. The other mock variants exist in the mock
+file but are dead code for that response. This makes it harder to validate that
+mock data stays in sync with the operation over time, since stale mocks in
+non-matching branches won't surface as errors.
+
+#### Fragment spread precedence
+
+For `...QuxFields @mock(variant: "mock-qux")`, the fragment `QuxFields` may
+be defined in a separate file with its own mock file (`QuxFields.json`)
+containing field-level `@mock` directives. It is unclear which mocks take
+precedence — the spread-level mock or the individual field-level mocks inside
+the fragment — creating a composition problem that does not exist with
+field-level mocking.
+
+</details>
