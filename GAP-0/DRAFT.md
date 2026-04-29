@@ -1,7 +1,7 @@
 # @mock Directive Specification
 
 This document specifies the `@mock` directive, which allows GraphQL clients to
-return mocked data for fields or entire operations.
+return mocked data for individual fields, selection sets, or entire operations.
 
 Mock data may be defined for fields and types that do not yet exist in the
 schema. This enables backend and client developers to work in parallel — client
@@ -86,9 +86,15 @@ Exactly one of these arguments must be provided. Providing both {"variant"} and
 *mock value* (stored in the *mock file*) to return for the field or operation
 where `@mock` is applied.
 
+A *mock variant id* must not start with two underscores (`__`). This is
+reserved and must not be used as a {"variant"} argument value.
+
+The mechanism for clients to read the *mock file* is implementation-defined.
+See: [Appendix: Reading Mock Files](#sec-Reading-Mock-Files).
+
 ### value
 
-{"value"} provides an inline *mock value* directly in the document.
+{"value"} provides an inline *mock value* as the value of the argument.
 
 When {"value"} is provided, the client uses the supplied string as the mock
 response for the annotated field without consulting a *mock file*.
@@ -99,7 +105,7 @@ _[leaf types](https://spec.graphql.org/September2025/#sec-Leaf-Field-Selections)
 or to operation roots.
 
 Because {"value"} is always a string, the client must coerce the string to the
-appropriate JSON type before merging it into the response:
+appropriate JSON type:
 
 CoerceInlineValue(value) :
   1. If {value} is {"null"}, return `null`.
@@ -111,17 +117,27 @@ CoerceInlineValue(value) :
 Note: This specification requires JSON as the serialization format for GraphQL
 responses.
 
-## Returning Mock Data
+## Transforming Operations
 
-If `@mock` is applied to an operation definition (e.g. {"Query"}), the entire
-response must be resolved from a *mock file*; no request should be sent to the server.
+Operations must be transformed to remove any selections which have `@mock`
+applied before sending the request to the server. The client must insert a *mock
+value* in each corresponding position before yielding a response to the
+application.
 
-If `@mock` is applied to non-root fields only, the client must transform the
-document to remove any selections which have `@mock` applied before sending the
-request to the server. For fields using {"variant"}, mock values are resolved
-from a *mock file*. For fields using {"value"}, the mock value is the coerced
-inline string. When the server's response is received, the client merges each
-*mock value* into the response before yielding to the application.
+If every selection in a _[SelectionSet](https://spec.graphql.org/September2025/#SelectionSet)_
+uses `@mock`, the parent that contains that _SelectionSet_ must be removed:
+
+  - If the parent is a field or inline fragment, remove it from the operation.
+  - If the parent is a fragment definition, remove the definition and all of its
+  corresponding fragment spreads.
+
+After removing mocked selections, if an operation
+_[variable](https://spec.graphql.org/September2025/#sec-Language.Variables)_ is
+no longer referenced by any remaining selection, the variable definition must
+also be removed from the operation. An unreferenced variable would produce an
+invalid document per the
+_[All Variables Used](https://spec.graphql.org/September2025/#sec-All-Variables-Used)_
+rule.
 
 When `@mock` is applied to a field, the *mock value* must always be included in
 the response, regardless of other directives present on the same field. In
@@ -129,12 +145,72 @@ particular, `@mock` takes precedence over `@skip` and `@include` — the mock
 data is always returned, irrespective of whether the field would otherwise be
 skipped or included based on those directives' conditions.
 
-Mock values must **not** be generated dynamically at runtime. Mock values must
-be resolved from the *mock file* or from the inline {"value"} argument.
+If `@mock` is applied to an operation definition (e.g. {"query"}), the entire
+response must be resolved from a *mock file*. No request should be sent to the
+server.
 
-The mechanism for GraphQL clients running in a web browser or mobile client to
-read the *mock file* is implementation-defined. See:
-[Appendix: Reading Mock Files](#sec-Reading-Mock-Files).
+**Example**
+
+The resulting operation that may be sent to a server as a result of applying all
+transformation logic specified above can be seen in this example:
+
+```graphql example
+fragment FooFields on Foo {
+  foo @mock(value: "foo!")
+  bar
+}
+
+fragment MoreFooFields on Foo {
+  baz @mock(value: "baz!")
+}
+
+query GetFoo($id: ID!, $planet: String!) {
+  foo(id: $id) {
+    id
+    ...FooFields
+    ...MoreFooFields
+    ... on Foo { baz @mock(value: "baz!") }
+    sayHello(planet: $planet) @mock(value: "hello world")
+  }
+}
+```
+
+Will be transformed into the following:
+
+```graphql example
+fragment FooFields on Foo {
+  bar
+}
+
+query GetFoo($id: ID!) {
+  foo(id: $id) {
+    id
+    ...FooFields
+  }
+}
+```
+
+**Formal Specification**
+
+TransformOperation(document, selectionSet) :
+  1. If {selectionSet} has a `@mock` directive, return {null}.
+  1. For each {selection} in {selectionSet}:
+      * If {selection} has a `@mock` directive, remove {selection} from
+        {selectionSet}.
+      * Otherwise, if {selection} has a _SelectionSet_:
+        * Let {childSelectionSet} be the _SelectionSet_ of {selection}.
+        * Let {document} be {TransformOperation(document, childSelectionSet)}.
+        * If {childSelectionSet} is now empty, remove {selection} from
+          {selectionSet}.
+  1. For each fragment definition in {document}:
+      * Let {fragmentSelectionSet} be the _SelectionSet_ of the fragment.
+      * Let {document} be {TransformOperation(document, fragmentSelectionSet)}.
+      * If the fragment's _SelectionSet_ is now empty, remove the definition
+        and all corresponding fragment spreads from {document}.
+  1. For each variable definition in {document}:
+      * If the variable is no longer referenced by any remaining selection,
+        remove it.
+  1. Return {document}.
 
 # Mock Files
 
@@ -200,22 +276,63 @@ A *mock variant* object may contain **only** the following keys:
 
 #### data
 
-:: {"data"} stores the *mock value*. It may be `null` if the field is nullable.
+:: {"data"} stores the *mock value*. It may be a scalar, object, or `null`,
+depending on what in the operation is being mocked.
+
+The client inserts {"data"} directly under the {"data"} key of the operation's
+response — it must not be nested inside an additional {"data"} entry.
+
+Fro example, when `@mock` is applied to an operation root, the *mock variant*
+should look like this:
+
+```json example
+{
+  "mock-id": {
+    "data": {
+      "business": {
+        "name": "The Great British Bakery",
+        "rating": 5.0
+      }
+    },
+    "__path__": "Query"
+  }
+}
+```
+
+Not this:
+
+```json counter-example
+{
+  "mock-id": {
+    "data": {
+      "data": {
+        "business": {
+          "name": "The Great British Bakery",
+          "rating": 5.0
+        }
+      }
+    },
+    "__path__": "Query"
+  }
+}
+```
 
 #### errors
 
 {"errors"} may contain an array of error objects conforming to the
 [GraphQL error format](https://spec.graphql.org/September2025/#sec-Errors).
-This must be merged into the GraphQL operation's response if defined.
+This is valid for both operation-level and field-level `@mock` directives.
 
-TODO: Define merging algorithm and resolution algorithm for conflicts
+The client must merge {"errors"} into the GraphQL server's response if present.
 
 #### extensions
 
-{"extensions"} may be a key-value mapping of arbitrary data. This must be merged
-into the GraphQL operation's response if defined.
+{"extensions"} may be a key-value mapping of arbitrary data, conforming to the
+[Extensions](https://spec.graphql.org/September2025/#sec-Extensions) section of
+the GraphQL specification.
 
-TODO: Define merging algorithm and resolution algorithm for conflicts
+The client must merge {"extensions"} into the GraphQL server's response if
+present.
 
 #### __description__
 
@@ -246,11 +363,8 @@ is or may be applied for a given *mock variant id*.
 present) representing the location of the field relative to the root of the
 operation or fragment. 
 
-TODO: Define field paths in a separate specification. See
-https://github.com/graphql/graphql-spec/issues/1215
-
 For `@mock` on an operation root, {"__path__"} is the root operation type name
-(e.g. {"Query"}).
+(e.g. {"Query"}, {"Mutation"}, or {"Subscription"}).
 
 **Example**
 
@@ -267,6 +381,12 @@ fragment FooFields on Foo {
   baz {
     # field path is "baz.qux"
     qux @mock(variant: "basic-qux")
+  }
+
+  # field path is "greeting"
+  greeting @mock(variant: "basic-greeting") {
+    salutation
+    planet
   }
 }
 ```
@@ -286,6 +406,13 @@ This would be a (minimally) valid corresponding *mock file*:
   "basic-qux": {
     "data": "...",
     "__path__": "baz.qux"
+  },
+  "basic-greeting": {
+    "data": {
+      "salutation": "...",
+      "planet": "..."
+    },
+    "__path__": "greeting"
   }
 }
 ```
@@ -302,15 +429,18 @@ Since mock files may be checked into version control and persist across schema
 changes, an existing *mock value* in a *mock file* or inline {"value"} argument
 may become invalid over time.
 
-Conforming clients must check that mock data is valid for each operation.
+Conforming clients must verify that mock data is valid for each operation.
 
 ## Mock File Validation
 
 If a *mock variant id* referenced by a {"variant"} argument does not exist in
 the *mock file*, this is a validation error.
 
-All *mock variant ids* within a *mock file* must be unique; duplicate keys are a
-validation error.
+All *mock variant ids* within a *mock file* must be unique; duplicate keys
+trigger a validation error.
+
+The {"__path__"} of each *mock variant* must correspond to a valid *field path*
+within the operation or fragment associated with the *mock file*.
 
 GraphQL clients must raise an error for an invalid *mock value* defined inside
 a *mock file*.
@@ -330,8 +460,9 @@ to include any new types and fields referenced in the *mock value*.
 
 ## Inline Mock Value Validation
 
-The {"value"} argument may only be used on scalar fields. When the field exists
-in the schema, the coerced value must match the field's return type.
+The {"value"} argument may only be used on leaf fields (scalars and enums). When
+the field exists in the schema, the coerced value must match the field's return
+type.
 
 **Formal Specification**
 
@@ -344,7 +475,7 @@ ValidateInlineValueArgument(field, schema) :
         * Let {coerced} be the result of {CoerceInlineValue(value)}.
         * {coerced} must be the return type of {field}.
 
-## Nested @mock Validation
+## No Nested @mock Validation
 
 `@mock` must not be used on a field that is a child of another field which also
 uses `@mock`:
@@ -392,6 +523,34 @@ ValidateNoNestedMocks(selectionSet, isMockedByParent) :
     * If {selection} has a {selectionSet}:
       * Let {nextSelectionSet} be that {selectionSet}.
       * Call {ValidateNoNestedMocks(nextSelectionSet, isChildrenMocked)}.
+
+## No Empty Operation Root Validation
+
+An operation's root
+_[SelectionSet](https://spec.graphql.org/September2025/#SelectionSet)_ must
+contain at least one selection that does not use `@mock`. If every selection in
+the operation's root _SelectionSet_ is mocked, the transformed operation would
+contain an empty _SelectionSet_, which is not valid GraphQL.
+
+```graphql counter-example
+# ❌ Validation error: all top-level fields are mocked
+query GetBusiness {
+  business(id: "123") @mock(variant: "bakery") {
+    name
+    rating
+  }
+}
+```
+
+**Formal Specification**
+
+ValidateNonEmptyRootSelectionSet(operationDefinition) :
+  1. If {operationDefinition} does not have the `@mock` directive applied:
+      * Let {rootSelectionSet} be the root selection set in
+        {operationDefinition},
+        expanding any fragment spreads.
+      * At least one selection in {rootSelectionSet} must not have a `@mock`
+        directive.
 
 # Mock File Generation
 
@@ -448,10 +607,11 @@ query Foo($barMock: String, $bazMock: String) {
 }
 ```
 
-Clients must manually coerce the directive argument variables (similar to
-[CoerceArgumentValues](https://spec.graphql.org/draft/#CoerceArgumentValues())).
-
-This is currently outside the scope of this specification.
+GraphQL servers resolve variable references in arguments during execution via
+[CoerceArgumentValues](https://spec.graphql.org/draft/#CoerceArgumentValues()),
+but this does not happen on the client. Clients that support variable references
+in `@mock` arguments must implement their own coercion of directive argument
+variables.
 
 ## Reading Mock Files
 
@@ -471,11 +631,13 @@ disable validation for mocked operations. The mechanism for schema patching is
 outside the scope of this specification, however contributions addressing this
 are welcome for inclusion in a future version of this document.
 
-**Trusted Documents**
+## Trusted Documents
 
-TODO: add a section to clarify that while this intended to be used in local dev
-(where the documents don't need to be hashed), because mock files can get
-checked in, and @mock directives could get checked in, @mock selections need
-to not be included in the actual document that gets hashed (i.e. the same
-transforming needs to happen at runtime and query compile time)
-This could be useful in staging environments or on prod (behind a feature flag). 
+Clients that use
+[trusted documents](https://graphql.org/learn/security/#trusted-documents)
+register a hash of each operation at build time and send only that hash at
+runtime.
+
+The document that is hashed must be the result of {TransformOperation}. The same
+transformation must be applied at both build time (when computing the hash) and
+at runtime (when preparing the request).
