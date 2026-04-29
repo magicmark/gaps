@@ -1,5 +1,5 @@
 ---
-name: gql-mock
+name: graphql-mock
 description: Create and edit mock values for GraphQL operations using the @mock directive
 ---
 
