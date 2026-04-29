@@ -113,7 +113,7 @@ When asked to add or update a mock variant:
 3. If creating a new mock, create a new entry with a descriptive mock variant id
 4. Ensure the mock value includes appropriate `data` and/or `errors` fields
 5. Add a summary of the user's prompt to the `__description__` field
-6. Write the updated mock file
+6. Write the updated mock file (do not modify other mocks in the file)
 
 ## Schema
 
