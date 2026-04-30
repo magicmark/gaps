@@ -17,11 +17,9 @@ https://gaps.graphql.org/
 
 ## GAP Numbering
 
-GAPs use number ranges to categorize different types of proposals:
-
-- **1XXX** — Community directive specifications
-
-Other ranges may be added in the future as new categories are identified.
+Each GAP is numbered after the GitHub Pull Request that introduces it. For
+example, if the PR that adds a GAP is `graphql/gaps#10`, the proposal becomes
+**GAP-10**.
 
 ## Repository structure
 

@@ -3,27 +3,24 @@
 Thanks for your interest in contributing! GAPs are community-driven proposals
 that address issues outside the core GraphQL specifications.
 
-## GAP Number Ranges
+## GAP Numbering
 
-GAPs use number ranges to categorize different types of proposals:
-
-- **1XXX** — Community directive specifications
-
-Other ranges may be added in the future as new categories are identified. The
-TSC are responsible for creating new GAP ranges.
+Each GAP is numbered after the GitHub Pull Request (PR) that introduces it. For
+example, if the PR that adds a GAP is `graphql/gaps#10`, the proposal becomes
+**GAP-10**.
 
 ## Filing a GAP
 
-1. File an issue outlining the topic for public vetting.
-2. If there is sufficient interest, open a PR that adds a new folder named
-   `GAP-0` containing the required files. The proposal must have at least one
-   author.
-3. Find a sponsor with merge rights (this may be one of the authors).
-4. Once approved by the authors and sponsor, GAP editors assign the GAP a
-   number from the appropriate range (not necessarily the next available
-   number), configure `CODEOWNERS`, and merge.
-5. GAP numbers never change. If a proposal needs significant changes, create a
-   new GAP and deprecate the old one.
+1. Optionally create an issue outlining the topic to gauge public interest.
+2. Open a PR that adds a new folder named `GAP-0` containing the required files.
+3. Find a sponsor with [merge rights](#commit-access) (this may be one of the
+   authors), and add them to `metadata.yml`.
+4. Once approved by the authors and sponsor, rename the folder to match the PR
+   number (e.g. `GAP-10`), configure `CODEOWNERS`, and merge the PR.
+
+> [!IMPORTANT]
+> GAP numbers never change. If a proposal needs significant changes, create a
+> new GAP and deprecate the old one.
 
 ### Required files
 
@@ -48,8 +45,10 @@ title: <title>
 status: proposal | draft | accepted
 authors:
   - "Your Name <noreply@example.com>"
-sponsor: "@githubUsername"
-# A GitHub issue, discussion, or other public forum
+sponsor: "@githubUername"
+# An separate GitHub issue, discussion, or other public forum where discussion
+# of this GAP occurs. Otherwise, this can be set to the URL of the PR in which
+# the GAP was submited.
 discussion: "https://github.com/graphql/graphql-wg/issues/..."
 ```
 
@@ -98,8 +97,8 @@ status of a published release, including a top-of-document notice or errata.
 ## Commit access
 
 Commit access is granted to this repo to the GAP editors and to members of the
-[GraphQL TSC](./GraphQL-TSC.md). To request to become a GAP editor, please reach
-out to a TSC member.
+[GraphQL TSC](https://github.com/graphql/graphql-wg/blob/main/GraphQL-TSC.md).
+To request to become a GAP editor, please reach out to a TSC member.
 
 ## GraphQL Specification Membership Agreement
 

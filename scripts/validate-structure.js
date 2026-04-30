@@ -40,11 +40,11 @@ function validateDirectoryNaming(dirPath) {
     return dirName;
   }
 
-  // Must match GAP-NNNN format (4 digits, zero-padded)
-  if (!/^GAP-\d{4}$/.test(dirName)) {
+  // Must match GAP-NNNN format (one or more digits)
+  if (!/^GAP-\d+$/.test(dirName)) {
     error(
       dirName,
-      `Invalid directory name format. Expected GAP-NNNN (4 digits, zero-padded)`,
+      `Invalid directory name format. Expected GAP-NNNN (e.g. GAP-10, GAP-123)`,
     );
   }
 
