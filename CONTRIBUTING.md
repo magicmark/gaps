@@ -3,6 +3,18 @@
 Thanks for your interest in contributing! GAPs are community-driven proposals
 that address issues outside the core GraphQL specifications.
 
+## Roles
+
+- **Editor** — a person with write access to this repository
+  (`@graphql/gaps-editors`), approved by the TSC to administer the GAP program.
+  Editors configure `CODEOWNERS` and merge PRs.
+- **Sponsor** — an editor assigned to a specific GAP who is responsible for
+  governing merges to that GAP. The sponsor ensures changes are approved by the
+  authors before merging. A sponsor may also be an author.
+- **Author** — a person (or people) who wrote or made significant contributions
+  to a GAP. Authors do not need commit access. Authors are responsible for
+  guiding contribution to their GAP.
+
 ## GAP Numbering
 
 Each GAP is numbered after the GitHub Pull Request (PR) that introduces it. For
