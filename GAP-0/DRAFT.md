@@ -191,25 +191,46 @@ query GetFoo($id: ID!) {
 
 **Formal Specification**
 
-TransformOperation(document, selectionSet) :
-  1. If {selectionSet} has a `@mock` directive, return {null}.
+TransformOperation(document, operationDefinition) :
+  1. If {operationDefinition} has a `@mock` directive, return {null}. The
+     client must not send a request to the server for this operation.
+  1. Let {transformedDocument} be a copy of {document}.
+  1. For each {definition} in {transformedDocument}, where {definition} is an
+     {OperationDefinition} or {FragmentDefinition}:
+      * Let {selectionSet} be the {SelectionSet} of {definition}.
+      * Replace {selectionSet} with the result of
+        {TransformSelectionSet(selectionSet)}.
+  1. Repeatedly prune {transformedDocument} until no further selections or
+     definitions are removed:
+      * Remove any {Field} or {InlineFragment} whose {SelectionSet} is empty.
+      * Remove any {FragmentDefinition} whose {SelectionSet} is empty.
+      * Remove any {FragmentSpread} whose referenced {FragmentDefinition} is
+        no longer present in {transformedDocument}.
+      * Remove any {FragmentDefinition} that is no longer reachable from any
+        {OperationDefinition} in {transformedDocument}.
+  1. For each {OperationDefinition} in {transformedDocument}:
+      * For each {VariableDefinition} in the operation:
+          - If the variable is no longer referenced by any remaining selection
+            or directive in that operation, including selections reachable
+            through remaining fragment spreads, remove the variable definition.
+  1. Return {transformedDocument}.
+
+TransformSelectionSet(selectionSet) :
   1. For each {selection} in {selectionSet}:
-      * If {selection} has a `@mock` directive, remove {selection} from
-        {selectionSet}.
-      * Otherwise, if {selection} has a {SelectionSet}:
-        * Let {childSelectionSet} be the {SelectionSet} of {selection}.
-        * Let {document} be {TransformOperation(document, childSelectionSet)}.
-        * If {childSelectionSet} is now empty, remove {selection} from
-          {selectionSet}.
-  1. For each fragment definition in {document}:
-      * Let {fragmentSelectionSet} be the {SelectionSet} of the fragment.
-      * Let {document} be {TransformOperation(document, fragmentSelectionSet)}.
-      * If the fragment's {SelectionSet} is now empty, remove the definition
-        and all corresponding fragment spreads from {document}.
-  1. For each variable definition in {document}:
-      * If the variable is no longer referenced by any remaining selection,
-        remove it.
-  1. Return {document}.
+      * If {selection} is a {Field} and has a `@mock` directive:
+          - Remove {selection} from {selectionSet}.
+      * Otherwise, if {selection} is a {Field} or {InlineFragment} and has a
+        {SelectionSet}:
+          - Let {childSelectionSet} be the {SelectionSet} of {selection}.
+          - Replace {childSelectionSet} with the result of
+            {TransformSelectionSet(childSelectionSet)}.
+          - If {childSelectionSet} is now empty, remove {selection} from
+            {selectionSet}.
+  1. Return {selectionSet}.
+
+Note: If the transformed root {SelectionSet} of an operation would be empty,
+the document is invalid. This condition is rejected by
+{ValidateNonEmptyRootSelectionSet}.
 
 # Mock Files
 
@@ -509,15 +530,26 @@ query MockedFoo {
 **Formal Specification**
 
 ValidateNoNestedMocks(selectionSet, isMockedByParent) :
-  1. For each {selection} in {selectionSet}, expanding any fragment spreads:
-    * Let {fieldUsesMock} be {true} if {selection} has a `@mock` directive,
-      otherwise {false}.
-    * If {isMockedByParent} is {true}, {fieldUsesMock} must be {false}.
-    * Let {isChildrenMocked} be {true} if both {isMockedByParent} and
-      {fieldUsesMock} is {true}, otherwise {false}.
-    * If {selection} has a {selectionSet}:
-      * Let {nextSelectionSet} be that {selectionSet}.
-      * Call {ValidateNoNestedMocks(nextSelectionSet, isChildrenMocked)}.
+  1. For each {selection} in {selectionSet}:
+    * If {selection} is a {Field}:
+      * Let {fieldUsesMock} be {true} if {selection} has a `@mock` directive,
+        otherwise {false}.
+      * If {isMockedByParent} is {true}, {fieldUsesMock} must be {false}.
+      * Let {areChildrenMocked} be {true} if either {isMockedByParent} or
+        {fieldUsesMock} is {true}, otherwise {false}.
+      * If {selection} has a {SelectionSet}:
+        * Let {nextSelectionSet} be that {SelectionSet}.
+        * Call {ValidateNoNestedMocks(nextSelectionSet, areChildrenMocked)}.
+    * If {selection} is an {InlineFragment}:
+      * Let {nextSelectionSet} be the {SelectionSet} of {selection}.
+      * Call {ValidateNoNestedMocks(nextSelectionSet, isMockedByParent)}.
+    * If {selection} is a {FragmentSpread}:
+      * Let {fragmentDefinition} be the referenced {FragmentDefinition}.
+      * Let {nextSelectionSet} be the {SelectionSet} of {fragmentDefinition}.
+      * Call {ValidateNoNestedMocks(nextSelectionSet, isMockedByParent)}.
+
+Fragment spreads must be expanded recursively. If expanding a fragment spread
+would recurse into a fragment already being expanded, skip that spread.
 
 ## No Empty Operation Root Validation
 
