@@ -7,8 +7,7 @@ that address issues outside the core GraphQL specifications.
 
 - **Editor** — a person with write access to this repository
   ([@graphql/gaps-editors](https://github.com/orgs/graphql/teams/gaps-editors)),
-  approved by the TSC to administer the GAP program. _Editors_ configure
-  `CODEOWNERS` and merge PRs.
+  approved by the TSC to administer the GAP program.
 - **Sponsor** — an _editor_ assigned to a GAP who is responsible for approving
   the initial contents. A _sponsor_ may also be an _author_.
 - **Author** — a person (or people) who have made significant contributions to a
