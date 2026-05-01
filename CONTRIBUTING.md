@@ -37,10 +37,11 @@ gauge public interest, but doing so is not necessary.
    - Update `id` in `metadata.yml` to be the PR number.
    - If not yet configured, update the `discussion` path in `metadata.yml` to
      point to the PR.
+   - Update `CODEOWNERS` to grant ownership of the new `GAP-N` directory to
+     each GAP _author_.
 4. Ping `@graphql/gaps-editors` to find a sponsor, add them to `metadata.yml`.
 
-Once approved by the _authors_ and _sponsor_, `CODEOWNERS` will be updated and
-the PR will be merged.
+Once approved by the _authors_ and _sponsor_, the PR should be merged!
 
 > [!IMPORTANT]
 > GAP numbers never change. If a proposal needs significant changes, create a
