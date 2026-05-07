@@ -92,6 +92,9 @@ function titleCase(value) {
 }
 
 function authorName(author) {
+  if (typeof author === "object" && author !== null) {
+    return author.name;
+  }
   const match = String(author).match(/^\s*(.*?)\s*<[^>]+>\s*$/);
   return match ? match[1] : String(author);
 }
