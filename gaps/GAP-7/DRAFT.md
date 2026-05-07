@@ -1,6 +1,6 @@
-# Fully Qualified Operation Name (FQON)
+# Fully Qualified Operation Names (FQON)
 
-**Introduction**
+## Introduction
 
 :: This document specifies _Fully Qualified Operation Name_ (FQON), a
 human‑readable, unambiguous identifier for GraphQL operations.
@@ -9,6 +9,9 @@ The primary motivation is to define a "lookup key" that may be used in static
 configuration files (e.g. for alerting rules per operation) which correctly
 targets operations, but without having to update the configuration each time a
 _document id_ changes.
+
+Note: See [README.md](https://github.com/graphql/gaps/blob/main/gaps/GAP-7/README.md)
+for additional context.
 
 This specification assumes usage of
 [trusted documents](https://graphql.org/learn/security/#trusted-documents) and
@@ -49,8 +52,6 @@ Because GraphQL operation names are not be guaranteed to be globally unique,
 they cannot reliably identify an operation across multiple platforms or
 deployment versions. On the other hand, a _document id_ is guaranteed to be
 unique but is inconvenient for humans to read and maintain.
-
-Note: See <README.md> for additional context.
 
 **Use Cases**
 
