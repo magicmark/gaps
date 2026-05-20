@@ -1,0 +1,8 @@
+id: 0
+title: @mock Directive
+status: draft
+authors:
+  - "Mark Larah (Yelp) <markl@yelp.com>"
+  - "Michael Rebello (Airbnb) <me@michaelrebello.com>"
+sponsor: "@magicmark"
+discussion: "https://github.com/graphql/gaps/10"
