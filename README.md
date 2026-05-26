@@ -31,3 +31,4 @@ Each proposal lives in its own `GAP-N` folder and must include:
 - `metadata.yml` — summary, authorship, sponsorship, status, and related metadata
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for the full GAP process.
+
