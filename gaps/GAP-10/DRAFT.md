@@ -345,7 +345,9 @@ list value directly:
 This is valid for both operation-level and field-level `@mock` directives.
 
 The client must append the contents of {"errors"} to the response's {"errors"}
-array.
+array. For each of these error objects, the client should populate the {"path"} field at
+runtime using the response path derived from {"__path__"}, ensuring that error
+paths correctly reflect the field's position in the response.
 
 #### extensions
 
@@ -552,7 +554,7 @@ ValidateNoNestedMocks(selectionSet, isMockedByParent) :
 
 ## No Conflicting Mocks
 
-If multiple equivalent selections ({Field Selection Merging}) exist for a field,
+If multiple equivalent selections ({FieldSelectionMerging}) exist for a field,
 either all must use `@mock` with identical arguments, or none may use `@mock`.
 This rule extends across fragment boundaries.
 
@@ -578,7 +580,7 @@ query GetFoo($id: ID!) {
 
 ValidateNoConflictingMocks(operationDefinition) :
   1. Collect all fields in the operation, expanding fragment spreads, grouped by
-     {response name}.
+     {ResponseName}.
   1. For each group of fields sharing a response name:
       * If any field has a `@mock` directive, every field in the group must have
         a `@mock` directive with identical arguments.
