@@ -1,0 +1,13 @@
+id: 61
+title: Algebraic Static Analysis for Queries
+summary: >
+  A reusable static-analysis API in which an engine handles GraphQL operation
+  semantics and each analysis algebra defines how collected response fields,
+  simultaneous contributions, and alternatives are summarized.
+status: proposal
+authors:
+  - name: "Duckki Oe"
+    email: "duckki.dev@gmail.com"
+    githubUsername: "@duckki"
+sponsor: "@martinbonnin"
+discussion: "https://github.com/graphql/gaps/pull/61"
